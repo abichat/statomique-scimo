@@ -1,0 +1,845 @@
+---
+format: 
+  revealjs:
+    footer: "StatOmique"
+    slide-number: c
+    theme: "statomique.scss"
+    width: 1280
+    height: 720
+execute: 
+  echo: true
+  warning: true
+filters:
+  - reveal-auto-agenda
+---
+
+```{r}
+#| echo: false
+options(width = 110, pillar.min_chars = 15, pillar.max_footer_lines = 4)
+set.seed(1234)
+```
+
+
+## Create your own recipes steps for omics data: the [{scimo}]{.orange} package {.titleslide-long}
+
+Antoine Bichat
+
+November 28th
+
+StatOmique
+
+
+![](img/logo_scimo.png){.absolute top="350" right="50" width="200" height="231"}
+
+
+# Intro
+
+## Presentation
+
+
+:::: {.columns}
+::: {.column width="80%"}
+
+<br>
+
+Data scientist @ Servier
+
+* Exploratory analysis
+
+* Oncology, pediatric cancers, targeted therapies
+
+* R, packages, shiny apps
+
+<br>
+
+Workshop at **Agrostat**, Bragança, Portugal, in September 24
+
+[_Creation of an end-to-end machine learning pipeline with {tidymodels}_](https://abichat.github.io/agrostat24-tuto-tidymodels)
+:::
+
+::: {.column width="20%"}
+<img class="circular-square" src="img/ab.jpg" />
+
+![](img/logo_servier.png)
+:::
+::::
+
+## Notes
+
+<br>
+
+::: {.callout-note}
+
+## Open source package
+
+`scimo` is a package developed on my own free time, and not for my employer.
+
+:::
+
+
+<br>
+
+::: {.callout-tip}
+
+## Code chunk
+
+There will be a lot of code in this presentation, but it is not necessary to look at it in detail on the first read-through.
+
+:::
+
+## The Palmer Archipelago penguins
+
+![](img/logo_palmer.png){.absolute bottom="30" right="10" width=100 height=116}
+
+```{r}
+#| message: false
+library(tidyverse)
+library(palmerpenguins)
+
+penguins
+```
+
+# Preprocessing
+
+## tidymodels
+
+> The tidymodels framework is a collection of packages for modeling and machine learning using tidyverse principles.
+
+:::: {.columns}
+
+::: {.column width="15%"}
+
+:::
+
+::: {.column width="70%"}
+![](img/core_tidymodels.png)
+:::
+
+::: {.column width="15%"}
+
+:::
+
+::::
+
+
+## Your first recipe
+
+> A recipe is an object that defines a series of roles and steps for data processing.
+
+<br>
+
+```{r}
+#| message: false
+#| echo: false
+library(recipes)
+```
+
+```{r}
+library(recipes)
+
+penguins %>% 
+  recipe(flipper_length_mm ~ .)
+```
+
+## Steps
+
+```{r}
+penguins %>% 
+  recipe(flipper_length_mm  ~ .) %>% 
+  step_impute_mean(all_numeric_predictors(), -year) %>% 
+  step_normalize(all_numeric_predictors(), -year) %>% 
+  step_pca(all_numeric_predictors(), -year, num_comp = 2)
+```
+
+
+## Estimation
+
+
+```{r}
+penguins %>% 
+  recipe(flipper_length_mm  ~ .) %>% 
+  step_impute_mean(all_numeric_predictors(), -year) %>% 
+  step_normalize(all_numeric_predictors(), -year) %>% 
+  step_pca(all_numeric_predictors(), -year, num_comp = 2) %>% 
+  prep()
+```
+
+
+## Application
+
+
+```{r}
+penguins %>% 
+  recipe(flipper_length_mm  ~ .) %>% 
+  step_impute_mean(all_numeric_predictors(), -year) %>% 
+  step_normalize(all_numeric_predictors(), -year) %>% 
+  step_pca(all_numeric_predictors(), -year, num_comp = 2) %>% 
+  prep() %>% 
+  bake(new_data = NULL)
+```
+
+
+## Step info
+
+
+```{r}
+penguins %>% 
+  recipe(flipper_length_mm  ~ .) %>% 
+  step_impute_mean(all_numeric_predictors(), -year) %>% 
+  step_normalize(all_numeric_predictors(), -year) %>% 
+  step_pca(all_numeric_predictors(), -year, num_comp = 2) %>% 
+  prep() %>% 
+  tidy(2)
+```
+
+
+# Omics data
+
+## Omics {{< fa dna >}}
+
+> Omics data refers to **large** datasets generated through high-throughput sequencing, used to study and understand **complex biological systems**.
+
+<br>
+
+:::: {.columns}
+
+::: {.column width="50%"}
+* **Genomics**: gene mutations, fusions...
+
+* **Transcriptomics**: gene expression.
+
+* **Proteomics**: protein abundance.
+
+* **Metagenomics**: microorganism abundance.
+
+* ...
+:::
+
+
+::: {.column width="50%"}
+
+::: {.center-h}
+Human multi-omics dataset
+:::
+
+![](img/omics.png)
+
+:::
+
+::::
+
+
+
+
+## Need for specific preprocessing
+
+* Feature [selection]{.orange} steps:
+
+  * keep genes with the most variability,
+  
+  * keep features significantly associated with the outcome.
+
+* Feature [aggregation]{.orange} steps:
+
+  * compute pathway activity score,
+  
+  * sum all abundances belonging to the same clade.
+
+* Feature [normalization]{.orange} steps:
+
+  * convert absolute counts to proportion.
+  
+* Feature [generation]{.orange} steps:
+
+  * reduce dimension for special data distribution,
+  
+  * extract clades from lineages.
+
+
+## `{scimo}`
+
+```{r}
+#| message: false
+library(scimo)
+```
+
+`{scimo}` provides extra recipes steps for dealing with omics data, while also being adaptable to other data types.
+
+<br>
+
+
+:::: {.columns}
+
+::: {.column width="15%"}
+
+:::
+
+::: {.column width="20%"}
+
+
+[![](img/logo_scimo.png)]{.center-h}
+
+
+
+[[![](img/checks.svg)](https://github.com/abichat/scimo/actions/workflows/R-CMD-check.yaml) [![](img/cran.svg)](https://CRAN.R-project.org/package=scimo)]{.center-h}
+
+:::
+
+::: {.column width="15%"}
+
+:::
+
+::: {.column width="50%"}
+
+`step_select_cv()`
+
+`step_select_wilcoxon()`
+
+`step_aggregate_list()`
+
+`step_rownormalize_tss()`
+
+`step_taxonomy()`
+
+...
+
+:::
+
+::::
+
+## Pediatric cancer dataset
+
+Gene expression of 108 CCLE cell lines from 5 different pediatric cancers.
+
+```{r}
+data("pedcan_expression")
+pedcan_expression
+```
+
+
+# Create your first step
+
+## Coefficient of variation
+
+Omics data are usually **large data**. For `pedcan_expression`, $p \approx 20000 \gg n \approx 100$.
+
+<br>
+
+We want a step that will keep the top 10% of all variables that have the greater coefficient of variation.
+
+$$\mathrm{CV} = \frac{\sigma}{\left|\mu\right|}$$
+```{r}
+#| eval: false
+cv <- function(x, na.rm = TRUE) {
+  sd(x, na.rm = na.rm) / abs(mean(x, na.rm = na.rm))
+}
+```
+
+
+## `step_select_cv()` in action
+
+```{r}
+rec_cv <-
+  recipe(disease ~ ., data = pedcan_expression) %>%  # long formula works with recipes >= 1.1
+  step_select_cv(all_numeric_predictors(), prop_kept = 0.1) %>% 
+  prep()
+```
+
+. . .
+
+<div style = "margin-top: 1em"></div>
+
+:::: {.columns}
+
+::: {.column width="55%"}
+
+```{r}
+#| echo: false
+options(width = 60, pillar.min_chars = 5)
+```
+
+```{r}
+bake(rec_cv, new_data = NULL)
+```
+:::
+
+::: {.column width="5%"}
+<!-- empty column to create gap -->
+:::
+
+::: {.column width="40%"}
+
+```{r}
+#| echo: false
+options(width = 110, pillar.min_chars = 15)
+```
+
+```{r}
+tidy(rec_cv, 1)
+```
+:::
+
+::::
+
+
+## User interface: `step_select_cv()`
+
+```{r}
+#| eval: false
+step_select_cv <- function(recipe, ..., role = NA, trained = FALSE,
+                           n_kept = NULL, prop_kept = NULL,
+                           cutoff = NULL, res = NULL,
+                           skip = FALSE, 
+                           id = rand_id("select_cv")) { 
+
+  add_step(                        # Add a new step to the existing recipe
+    recipe,
+    step_select_cv_new(            # Arguments are passed as is
+      terms = enquos(...),
+      role = role,                 
+      trained = trained,           # trained = FALSE
+      n_kept = n_kept,
+      prop_kept = prop_kept,
+      cutoff = cutoff,
+      res = res,                   # res = NULL to update later
+      skip = skip,
+      id = id                      # Random id
+    )
+  )
+}
+```
+
+
+## Step creation: `step_select_cv_new()`
+
+```{r}
+#| eval: false
+step_select_cv_new <- function(terms, role, trained,
+                               n_kept, prop_kept, cutoff,
+                               res, skip, id) {
+
+  step(
+    subclass = "select_cv",  # Specify the class to dispatch future methods
+    terms = terms,           # Arguments are passed as is
+    role = role,
+    trained = trained,       
+    n_kept = n_kept,
+    prop_kept = prop_kept,
+    cutoff = cutoff,
+    res = res,
+    skip = skip,
+    id = id
+  )
+}
+```
+
+## Computing: `prep.step_select_cv()`
+
+```{css, echo=FALSE}
+.reveal code {
+  max-height: 100% !important;
+}
+```
+
+
+```{r}
+#| code-line-numbers: "1-27|3-4|8-12|16-26"
+#| eval: false
+prep.step_select_cv <- function(x, training, info = NULL, ...) {
+  
+  col_names <- recipes_eval_select(x$terms, training, info)    # x is a list containing step info
+  check_type(training[, col_names], quant = TRUE)              # Check variables
+
+  #####
+  
+  res_cv <-                                  # Compute quantities
+    training[, col_names] %>%                #  A tibble with 3 columns:
+    apply(2, cv) %>%                         #  features, CVs and whether to keep them
+    enframe(name = "terms", value = "cv") %>%
+    mutate(kept = var_to_keep(.data$cv, x$n_kept, x$prop_kept, x$cutoff, maximize = TRUE))
+
+  #####
+  
+  step_select_cv_new(    # Update step in recipe
+    terms = x$terms,     # Most arguments are passed as is
+    role = x$role,
+    trained = TRUE,      # The step is now trained
+    n_kept = x$n_kept,
+    prop_kept = x$prop_kept,
+    cutoff = x$cutoff,
+    res = res_cv,        # Result to store to use later
+    skip = x$skip,
+    id = x$id
+  )
+}
+```
+
+## Applying: `bake.step_select_cv()`
+
+```{r}
+#| code-line-numbers: "1-18|3-4|8-13|17"
+#| eval: false
+bake.step_select_cv <- function(object, new_data, ...) {
+  
+  col_names <- object$res$terms                # object is a list containing step info
+  check_new_data(col_names, object, new_data)  # Check variables
+
+  #####
+  
+  col_to_remove <-            # Do things
+    object$res %>%            #  remove unwanted columns
+    filter(!.data$kept) %>%
+    pull(.data$terms)
+
+  new_data[col_to_remove] <- NULL
+  
+  #####
+
+  new_data # Return updated dataset
+}
+```
+
+## Getting informations: `tidy.step_select_cv()`
+
+```{r}
+#| code-line-numbers: "1-18|4|6-13|16-17"
+#| eval: false
+tidy.step_select_cv <- function(x, ...) {
+  
+  if (is_trained(x)) {
+    res <- x$res                       # res contains all necessary information
+  } else {
+    term_names <- sel2char(x$terms)
+    res <-
+      tibble(
+        terms = term_names,            # Returns NA when not trained
+        cv = rlang::na_dbl,
+        rank = rlang::na_dbl,
+        kept = rlang::na_lgl
+      )
+  }
+
+  res$id <- x$id                      # Add the unique random id
+  res
+}
+```
+
+## Printing: `print.step_select_cv()`
+
+```{r}
+#| eval: false
+print.step_select_cv <- function(x, width = max(20, options()$width - 35), ...) {
+  
+  title <- "Top CV filtering on "
+
+  print_step(
+    tr_obj = x$res$terms,
+    untr_obj = x$terms,
+    trained = x$trained,
+    title = title,
+    width = width
+  )
+  
+  invisible(x)
+}
+```
+
+
+## Methods to import
+
+To correctly manage your NAMESPACE
+
+```{r}
+#| eval: false
+#' @keywords internal
+"_PACKAGE"
+
+## usethis namespace: start
+#' @importFrom generics required_pkgs tidy
+#' @importFrom recipes prep bake
+#' @importFrom tibble tibble
+## usethis namespace: end
+NULL
+```
+
+
+# Dependencies without dependencies
+
+
+## Deal with taxonomic lineages
+
+```{r}
+data("cheese_taxonomy")
+
+cheese_taxonomy %>% 
+  select(asv, lineage)
+```
+
+
+## Deal with taxonomic lineages 
+
+![](img/logo_yatah.png){.absolute bottom="30" right="10" width=100 height=116}
+
+
+```{r}
+data("cheese_taxonomy")
+
+cheese_taxonomy %>% 
+  select(asv, lineage) %>% 
+  mutate(order = yatah::get_clade(lineage, "order"),
+         genus = yatah::get_clade(lineage, "genus")) 
+```
+
+
+
+## `step_taxonomy()`
+
+```{r}
+cheese_taxonomy %>% 
+  recipe(~ asv + lineage) %>% 
+  step_taxonomy(lineage, rank = c("order", "genus")) %>% 
+  prep() %>% 
+  bake(new_data = NULL)
+```
+
+
+
+## The classical way
+
+```{r}
+#| eval: false
+#| code-line-numbers: "1-9|4|6"
+#' @importFrom yatah get_clade
+bake.step_taxonomy <- function(object, new_data, ...) {
+  ...
+  new_col <- paste0(term, "_", rank)
+  
+  new_data[[new_col]] <- get_clade(new_data[[term]], rank = rank, same = FALSE)
+  ...
+  return(new_data)
+}
+```
+
+. . .
+
+<br>
+
+* Need to add `{yatah}` as a dependency. 
+
+
+## A word about `call2()` and `eval_tidy()`
+
+```{r}
+head(fruit)
+```
+
+. . . 
+
+```{r}
+knitr::combine_words(head(fruit), and = " or ")
+```
+
+. . .
+
+<br>
+
+```{r}
+#| message: false
+library(rlang)
+cl <- call2("combine_words", .ns = "knitr",
+            words = head(fruit), and = " or ")
+cl
+```
+
+. . .
+
+```{r}
+eval_tidy(cl)
+```
+
+
+
+
+## The dependency-free way 
+
+
+```{r}
+#| eval: false
+#| code-line-numbers: "1-10|6-7|8"
+#' @importFrom rlang eval_tidy call2
+bake.step_taxonomy <- function(object, new_data, ...) {
+  ...
+  new_col <- paste0(term, "_", rank)
+  
+  yatah_call <- call2("get_clade", .ns = "yatah", 
+                      lineage = new_data[[term]], rank = rank, same = TRUE)
+  new_data[[new_col]] <- eval_tidy(yatah_call)
+  ...
+  return(new_data)
+}
+```
+
+. . .
+
+<br>
+
+* `{yatah}` is no longer needed.
+
+* `{rlang}` is already a `{recipes}` dependency. 
+
+
+## `required_pkgs()` 
+
+```{r}
+required_pkgs.step_taxonomy <- function(x, ...) {
+  c("yatah", "scimo")
+}
+```
+
+<br>
+
+* Check if the used package is installed. 
+
+* Correctly load the package for parallel processing.
+
+* Used also for other steps in `{scimo}`, and returns only `"scimo"`. 
+
+
+# Outro
+
+## Next steps
+
+<br>
+
+* Tunable arguments.
+
+* New steps
+
+  * Other tests ([`limma`](https://bioinf.wehi.edu.au/limma/), [`DESeq2`](https://bioconductor.org/packages/release/bioc/html/DESeq2.html)...) for feature selection,
+  
+  * [`PLNmodels`](https://pln-team.github.io/PLNmodels/) dimension reduction,
+  
+  * Batch effect removal,
+  
+  * Multi-omics steps (`step_mfa()`).
+
+
+## To go further
+
+<br>
+
+* Packages
+
+  * [tidymodels](https://www.tidymodels.org/)
+  
+  * [recipes](https://recipes.tidymodels.org/)
+  
+  * [scimo](https://abichat.github.io/scimo/)
+  
+* Books
+
+  * [Tidy Modeling with R](https://www.tmwr.org/)
+  
+* Vignette
+
+  * [Create your own recipe step function](https://www.tidymodels.org/learn/develop/recipes/)
+
+
+## Big thanks
+
+<br>
+
+
+:::: {.columns}
+
+::: {.column width="30%"}
+
+:::
+
+::: {.column width="50%"}
+
+<div style = "margin-top: 0.4em"></div>
+
+::: {.center-h}
+**Julie Aubert**
+:::
+
+::: {.center-h}
+for ideas, discussions and contributions
+:::
+
+:::
+
+::: {.column width="10%"}
+<img class="circular-square" src="https://avatars.githubusercontent.com/u/23551715?v=4" />
+:::
+
+::: {.column width="10%"}
+
+:::
+
+::::
+
+
+:::: {.columns}
+
+::: {.column width="10%"}
+
+:::
+
+::: {.column width="10%"}
+<img class="circular-square" src=https://avatars.githubusercontent.com/u/14034784?v=4" />
+:::
+
+::: {.column width="30%"}
+
+<div style = "margin-top: 0.4em"></div>
+
+::: {.center-h}
+**Emil Hvitfeldt**
+:::
+
+::: {.center-h}
+for review and issues
+:::
+
+:::
+
+::: {.column width="50%"}
+
+:::
+
+::::
+
+
+:::: {.columns}
+
+::: {.column width="40%"}
+
+:::
+
+::: {.column width="30%"}
+
+<div style = "margin-top: 0.4em"></div>
+
+::: {.center-h}
+**Sylvain Jonchery**
+:::
+
+::: {.center-h}
+for the logo
+:::
+
+
+:::
+
+::: {.column width="10%"}
+![](https://abichat.github.io/scimo/logo.png)
+:::
+
+::: {.column width="20%"}
+
+:::
+
+::::
+
